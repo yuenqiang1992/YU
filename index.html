@@ -1,0 +1,709 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#2C7A4B">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="控脂饮食记">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px}img{max-width:100%}</style>
+<title>控脂饮食记</title>
+<style>
+/* Layout: single phone-width column; sticky tab bar; summary first, meals below; bottom sheet for adding food */
+:root{
+  --bg:#F3F6F2; --surface:#FFFFFF; --ink:#18221D; --muted:#5E6B63; --line:#DDE4DE;
+  --accent:#2C7A4B; --accent-soft:#E1F0E6; --on-accent:#FFFFFF;
+  --warn:#A86A12; --warn-soft:#FBF0DC; --bad:#B83B3B; --bad-soft:#F8E3E1;
+  --shadow:0 8px 30px rgba(20,40,30,.14);
+  --f-display:"Noto Serif SC","Songti SC",serif;
+  --f-body:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --f-num:"DM Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F1412; --surface:#18201C; --ink:#E3EAE5; --muted:#93A198; --line:#2A3530;
+  --accent:#6CC28F; --accent-soft:#1D3327; --on-accent:#0E1A13;
+  --warn:#E0A84A; --warn-soft:#3A2E17; --bad:#E57B72; --bad-soft:#3B1E1C;
+  --shadow:0 8px 30px rgba(0,0,0,.5); color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:#0F1412; --surface:#18201C; --ink:#E3EAE5; --muted:#93A198; --line:#2A3530;
+  --accent:#6CC28F; --accent-soft:#1D3327; --on-accent:#0E1A13;
+  --warn:#E0A84A; --warn-soft:#3A2E17; --bad:#E57B72; --bad-soft:#3B1E1C;
+  --shadow:0 8px 30px rgba(0,0,0,.5); color-scheme:dark;}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.55}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.wrap{max-width:680px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 96px}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+
+header.top{padding-block:20px 8px;display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font-family:var(--f-display);font-size:26px;margin:0;letter-spacing:.02em}
+.sub{color:var(--muted);font-size:13px}
+.mode{font-size:12px;padding:3px 8px;border-radius:99px;background:var(--accent-soft);color:var(--accent)}
+.mode.local{background:var(--warn-soft);color:var(--warn)}
+
+nav.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding-block:8px;border-bottom:1px solid var(--line)}
+nav.tabs a{text-align:center;text-decoration:none;color:var(--muted);padding:8px 0;border-radius:10px;font-weight:500}
+nav.tabs a[aria-current="page"]{background:var(--ink);color:var(--bg)}
+
+section.view{display:grid;gap:18px;padding-top:16px}
+h2{font-family:var(--f-display);font-size:18px;margin:0}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.between{justify-content:space-between}
+
+.datebar{display:flex;align-items:center;gap:8px}
+.datebar .d{flex:1;text-align:center;font-weight:700}
+.icon-btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;width:38px;height:38px;display:grid;place-items:center;font-size:18px}
+.link-btn{border:0;background:none;color:var(--accent);padding:4px 2px;font-weight:500}
+
+.summary{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;display:grid;gap:14px}
+.big{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.big .n{font-family:var(--f-num);font-size:40px;font-weight:500;line-height:1}
+.big .of{color:var(--muted)}
+.pill{font-size:12px;padding:3px 9px;border-radius:99px;font-weight:500}
+.pill.ok{background:var(--accent-soft);color:var(--accent)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.bad{background:var(--bad-soft);color:var(--bad)}
+.bar{height:10px;border-radius:99px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:99px;background:var(--accent);transition:width .3s}
+.bar.warn i{background:var(--warn)} .bar.bad i{background:var(--bad)}
+.minirow{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+.mini .lbl{font-size:12px;color:var(--muted);letter-spacing:.04em}
+.mini .v{font-family:var(--f-num);font-size:18px}
+
+.body-metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.field{display:grid;gap:4px}
+.field label{font-size:12px;color:var(--muted)}
+.field input,.field select{width:100%;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 10px}
+
+.meal{display:grid;gap:6px}
+.meal-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.meal-head h3{margin:0;font-size:15px}
+.meal-head .k{font-family:var(--f-num);color:var(--muted);font-size:13px}
+.item{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:10px;padding:6px 0}
+.item .nm{min-width:0}
+.item .nm small{display:block;color:var(--muted);font-size:12px}
+.item .k{font-family:var(--f-num)}
+.x{border:0;background:none;color:var(--muted);font-size:18px;width:32px;height:32px;border-radius:8px}
+.x:hover{background:var(--bad-soft);color:var(--bad)}
+.empty{color:var(--muted);font-size:13px;padding:4px 0}
+.add-meal{justify-self:start}
+
+.btn{border:0;background:var(--accent);color:var(--on-accent);border-radius:12px;padding:11px 16px;font-weight:700}
+.btn.ghost{background:var(--accent-soft);color:var(--accent)}
+.btn.small{padding:7px 12px;font-size:13px;border-radius:10px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:6px 12px;font-size:13px}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+.search{width:100%;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:11px 14px}
+.food-list{display:grid;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.food{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:11px 14px;border:0;border-bottom:1px solid var(--line);background:none;text-align:left;width:100%}
+.food:last-child{border-bottom:0}
+.food:hover{background:var(--accent-soft)}
+.food .nm{min-width:0}
+.food .nm small{display:block;color:var(--muted);font-size:12px}
+.food .k{font-family:var(--f-num);text-align:right;white-space:nowrap}
+.food .k small{display:block;color:var(--muted);font-size:11px}
+.tag-warn{font-size:11px;padding:1px 6px;border-radius:6px;background:var(--bad-soft);color:var(--bad);margin-left:6px;vertical-align:1px}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:grid;gap:10px}
+.custom-grid{display:grid;grid-template-columns:2fr 1.4fr 1fr 1fr;gap:8px}
+@media (max-width:520px){.custom-grid{grid-template-columns:1fr 1fr}}
+
+.day-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:grid;gap:10px}
+.day-card.today{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.day-card h3{margin:0;font-family:var(--f-display);font-size:16px}
+.mrow{display:grid;grid-template-columns:44px 1fr auto;gap:10px;align-items:start;padding-top:8px;border-top:1px dashed var(--line)}
+.mrow .ml{font-size:12px;color:var(--muted);padding-top:2px}
+.mrow .its{min-width:0;font-size:14px}
+.mrow .its .k{font-family:var(--f-num);color:var(--muted);font-size:12px}
+.tip{font-size:13px;color:var(--muted);background:var(--bg);border-radius:10px;padding:8px 10px}
+
+.chart{display:grid;gap:4px}
+.plot,.labels{display:grid;grid-template-columns:repeat(14,1fr);gap:4px}
+.plot{position:relative;height:150px;align-items:end;border-bottom:1px solid var(--line)}
+.chart .col{display:flex;align-items:flex-end;height:100%;border:0;background:none;padding:0;min-width:0}
+.chart .col .b{width:100%;border-radius:4px 4px 0 0;background:var(--accent);min-height:2px}
+.chart .col.sel .b{outline:2px solid var(--ink);outline-offset:1px}
+.chart .col .b.warn{background:var(--warn)} .chart .col .b.bad{background:var(--bad)} .chart .col .b.none{background:var(--line)}
+.labels span{font-family:var(--f-num);font-size:10px;color:var(--muted);text-align:center}
+.labels span.sel{color:var(--ink);font-weight:500}
+.target-line{position:absolute;left:0;right:0;border-top:1.5px dashed var(--muted);pointer-events:none}
+.target-line span{position:absolute;right:0;top:-18px;font-size:11px;color:var(--muted);background:var(--surface);padding:0 4px;font-family:var(--f-num)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:right;padding:7px 6px;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+th{font-size:12px;color:var(--muted);font-weight:500}
+td{font-family:var(--f-num)}
+.tbl{overflow-x:auto}
+
+.scrim{position:fixed;inset:0;background:rgba(10,20,15,.45);z-index:20}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:21;background:var(--surface);border-radius:20px 20px 0 0;box-shadow:var(--shadow);
+  padding-top:18px;padding-bottom:calc(18px + env(safe-area-inset-bottom,0px));padding-left:max(18px,env(safe-area-inset-left,0px));padding-right:max(18px,env(safe-area-inset-right,0px))}
+.sheet-in{max-width:640px;margin:0 auto;display:grid;gap:14px}
+.stepper{display:flex;align-items:center;gap:10px}
+.stepper button{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--bg);font-size:20px}
+.stepper .q{font-family:var(--f-num);font-size:22px;min-width:3ch;text-align:center}
+.seg{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+.seg button{border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:8px 0;font-size:14px}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:30;background:var(--ink);color:var(--bg);border-radius:12px;padding:10px 14px;display:flex;gap:14px;align-items:center;box-shadow:var(--shadow);max-width:calc(100% - 32px)}
+.toast button{border:0;background:none;color:var(--accent-soft);font-weight:700}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>控脂饮食记</h1>
+      <div class="sub">记录每天吃了什么，看热量和蛋白质</div>
+    </div>
+    <span id="mode" class="mode">正在连接…</span>
+  </header>
+
+  <nav class="tabs" aria-label="页面">
+    <a href="#today" data-tab="today">今日</a>
+    <a href="#foods" data-tab="foods">食物库</a>
+    <a href="#menu" data-tab="menu">菜单</a>
+    <a href="#history" data-tab="history">记录</a>
+  </nav>
+
+  <section class="view" id="v-today"></section>
+  <section class="view" id="v-foods" hidden></section>
+  <section class="view" id="v-menu" hidden></section>
+  <section class="view" id="v-history" hidden></section>
+</div>
+
+<div id="sheet-root"></div>
+<div id="toast-root"></div>
+
+<script>
+/* ---------- 食物数据（每份的热量 kcal 与蛋白质 g，均为常见做法的估算值） ---------- */
+const CATS = [["all","全部"],["staple","主食"],["protein","蛋白质"],["veg","蔬菜"],["dish","菜品/外卖"],["snack","水果/饮品"],["mine","我的"]];
+const FOODS = [
+  // 主食
+  {id:"rice",c:"staple",n:"白米饭",u:"1碗 150g",k:174,p:3.9},
+  {id:"zaliang",c:"staple",n:"杂粮饭",u:"1碗 150g",k:165,p:4.5},
+  {id:"brownrice",c:"staple",n:"糙米饭",u:"1碗 150g",k:167,p:4},
+  {id:"potato",c:"staple",n:"蒸/煮土豆",u:"1个 200g",k:154,p:4},
+  {id:"potatoroast",c:"staple",n:"烤土豆块（少油）",u:"1个 200g",k:190,p:4},
+  {id:"sweetpotato",c:"staple",n:"红薯",u:"1个 200g",k:180,p:3},
+  {id:"corn",c:"staple",n:"玉米",u:"1根",k:160,p:5},
+  {id:"oats",c:"staple",n:"燕麦片",u:"40g 干重",k:150,p:5},
+  {id:"wholebread",c:"staple",n:"全麦面包",u:"2片 70g",k:175,p:8},
+  {id:"mantou",c:"staple",n:"白馒头",u:"1个 100g",k:223,p:7},
+  {id:"zlmantou",c:"staple",n:"杂粮馒头",u:"1个 80g",k:170,p:6},
+  {id:"soba",c:"staple",n:"荞麦面",u:"50g 干重",k:170,p:6},
+  {id:"noodle",c:"staple",n:"挂面/面条",u:"50g 干重",k:175,p:5},
+  {id:"pumpkin",c:"staple",n:"蒸南瓜",u:"200g",k:46,p:1.4},
+  {id:"roubao",c:"staple",n:"肉包子",u:"1个",k:230,p:8},
+  {id:"caibao",c:"staple",n:"菜包子",u:"1个",k:160,p:5},
+  {id:"wonton",c:"staple",n:"鲜肉馄饨",u:"10个",k:280,p:12},
+  {id:"dumpling",c:"staple",n:"猪肉水饺",u:"10个",k:400,p:17},
+  {id:"jianbing",c:"staple",n:"煎饼果子（双蛋·不要薄脆）",u:"1份",k:380,p:16},
+  {id:"youtiao",c:"staple",n:"油条",u:"1根",k:230,p:4,w:1},
+  // 蛋白质
+  {id:"egg",c:"protein",n:"鸡蛋（水煮）",u:"1个",k:72,p:6.5},
+  {id:"teaegg",c:"protein",n:"茶叶蛋",u:"1个",k:75,p:6.5},
+  {id:"ludan",c:"protein",n:"卤蛋",u:"1个",k:90,p:7},
+  {id:"chickbreast",c:"protein",n:"鸡胸肉",u:"100g 生重",k:118,p:24},
+  {id:"chickleg",c:"protein",n:"去皮鸡腿",u:"1个 约100g肉",k:150,p:20},
+  {id:"beef",c:"protein",n:"瘦牛肉",u:"100g 生重",k:125,p:21},
+  {id:"lubeef",c:"protein",n:"卤牛肉/酱牛肉",u:"100g",k:200,p:30},
+  {id:"pork",c:"protein",n:"猪里脊",u:"100g 生重",k:155,p:20},
+  {id:"shrimp",c:"protein",n:"虾仁/白灼虾",u:"100g 去壳",k:90,p:19},
+  {id:"fishfillet",c:"protein",n:"鱼片（龙利鱼/巴沙鱼）",u:"100g",k:80,p:16},
+  {id:"bass",c:"protein",n:"清蒸鲈鱼",u:"100g 可食",k:105,p:18.6},
+  {id:"tofu",c:"protein",n:"北豆腐（老豆腐）",u:"100g",k:105,p:12},
+  {id:"softtofu",c:"protein",n:"嫩豆腐",u:"100g",k:50,p:5},
+  {id:"dougan",c:"protein",n:"豆干",u:"50g",k:70,p:8},
+  {id:"milk",c:"protein",n:"纯牛奶",u:"250ml",k:160,p:8},
+  {id:"yogurt",c:"protein",n:"无糖酸奶",u:"1杯 150g",k:100,p:5},
+  {id:"doujiang",c:"protein",n:"无糖豆浆",u:"250ml",k:80,p:7},
+  // 蔬菜
+  {id:"cucumber",c:"veg",n:"黄瓜",u:"1根 200g",k:30,p:1.6},
+  {id:"paihuanggua",c:"veg",n:"拍黄瓜",u:"1份",k:60,p:1.6},
+  {id:"tomato",c:"veg",n:"番茄",u:"1个 200g",k:38,p:1.8},
+  {id:"cherrytom",c:"veg",n:"小番茄",u:"1把 150g",k:33,p:1.5},
+  {id:"greens",c:"veg",n:"青菜（白灼）",u:"1份 200g",k:30,p:3},
+  {id:"greensfry",c:"veg",n:"清炒青菜",u:"1份 200g",k:80,p:3},
+  {id:"wawacai",c:"veg",n:"娃娃菜（煮/白灼）",u:"1份 200g",k:30,p:2.6},
+  {id:"broccoli",c:"veg",n:"西兰花（白灼）",u:"1份 200g",k:68,p:5.6},
+  {id:"mushroom",c:"veg",n:"菌菇（香菇/杏鲍菇）",u:"1份 150g",k:40,p:4},
+  {id:"muer",c:"veg",n:"凉拌木耳",u:"1份 100g",k:50,p:1.5},
+  {id:"lettuce",c:"veg",n:"生菜",u:"1份 150g",k:20,p:2},
+  {id:"zucchini",c:"veg",n:"炒西葫芦",u:"1份 200g",k:80,p:2.4},
+  // 菜品 / 外卖
+  {id:"fanqiechaodan",c:"dish",n:"番茄炒蛋",u:"1份（2蛋+1番茄）",k:250,p:14},
+  {id:"wawasoup",c:"dish",n:"娃娃菜肉片汤",u:"1份（里脊120g）",k:260,p:27},
+  {id:"beefmush",c:"dish",n:"菌菇炒牛肉",u:"1份（牛肉150g）",k:300,p:34},
+  {id:"fishsoup",c:"dish",n:"番茄豆腐鱼片汤",u:"1份",k:260,p:30},
+  {id:"airchicken",c:"dish",n:"空气炸锅鸡腿（去皮）",u:"1个",k:170,p:22},
+  {id:"shrimpmush",c:"dish",n:"清炒虾仁蘑菇",u:"1份",k:200,p:26},
+  {id:"tomatobeef",c:"dish",n:"番茄牛腩饭（饭吃一半）",u:"1份",k:600,p:28},
+  {id:"malatang",c:"dish",n:"麻辣烫·清汤（自选荤素，不喝汤）",u:"1份",k:500,p:30},
+  {id:"steamfish",c:"dish",n:"蒸鱼套餐（半碗饭+青菜）",u:"1份",k:550,p:30},
+  {id:"lanzhou",c:"dish",n:"兰州牛肉面（加肉加蛋，面吃2/3）",u:"1碗",k:600,p:35},
+  {id:"bowl",c:"dish",n:"鸡胸轻食碗（酱汁一半）",u:"1份",k:500,p:35},
+  {id:"luwei",c:"dish",n:"卤味拼饭（去皮鸡腿+卤蛋+豆干，半碗饭）",u:"1份",k:600,p:35},
+  {id:"beefnoodle",c:"dish",n:"牛肉粉/米线·清汤（粉吃一半）",u:"1碗",k:480,p:22},
+  {id:"huangmenji",c:"dish",n:"黄焖鸡米饭",u:"1份",k:850,p:35,w:1},
+  {id:"zhujiaofan",c:"dish",n:"猪脚饭",u:"1份",k:900,p:30,w:1},
+  {id:"malaxiangguo",c:"dish",n:"麻辣香锅",u:"1份",k:1000,p:30,w:1},
+  {id:"friedchicken",c:"dish",n:"炸鸡",u:"1块",k:280,p:15,w:1},
+  {id:"burger",c:"dish",n:"汉堡",u:"1个",k:500,p:22,w:1},
+  // 水果 / 饮品 / 零食
+  {id:"apple",c:"snack",n:"苹果",u:"1个 200g",k:105,p:0.4},
+  {id:"orange",c:"snack",n:"橙子",u:"1个 200g",k:95,p:1.6},
+  {id:"banana",c:"snack",n:"香蕉",u:"1根",k:110,p:1.3},
+  {id:"berries",c:"snack",n:"草莓/蓝莓",u:"1碗 150g",k:70,p:1},
+  {id:"nuts",c:"snack",n:"原味坚果",u:"15g 一小把",k:90,p:3},
+  {id:"coffee",c:"snack",n:"黑咖啡/无糖茶",u:"1杯",k:0,p:0},
+  {id:"milktea",c:"snack",n:"奶茶（全糖）",u:"1杯 500ml",k:400,p:3,w:1},
+  {id:"cola",c:"snack",n:"可乐",u:"330ml",k:140,p:0,w:1},
+  {id:"beer",c:"snack",n:"啤酒",u:"500ml",k:220,p:2,w:1},
+  {id:"chips",c:"snack",n:"薯片",u:"1包 60g",k:330,p:3,w:1},
+  {id:"instantnoodle",c:"snack",n:"泡面",u:"1包",k:470,p:9,w:1},
+];
+
+/* ---------- 7 天菜单（[食物id, 份数]） ---------- */
+const MEALS = ["早餐","午餐","加餐","晚餐","夜宵"];
+const MENU = [
+  {d:"周一",m:{早餐:[["roubao",1],["teaegg",2],["doujiang",1]],午餐:[["tomatobeef",1]],加餐:[["apple",1]],晚餐:[["potato",1],["shrimp",1.5],["paihuanggua",1],["egg",1]],夜宵:[["milk",1]]},
+   t:"晚餐：虾水开后煮 2 分钟；黄瓜拍碎，用蒜、醋、少许生抽拌。"},
+  {d:"周二",m:{早餐:[["corn",1],["teaegg",2],["milk",1]],午餐:[["malatang",1]],加餐:[["yogurt",1]],晚餐:[["fanqiechaodan",1],["zaliang",1],["greensfry",1],["chickbreast",1]]},
+   t:"麻辣烫：牛肉/鸡肉/虾滑 + 鸡蛋 + 豆腐 + 娃娃菜/菌菇；不要丸子和午餐肉。"},
+  {d:"周三",m:{早餐:[["wholebread",1],["egg",2],["milk",1]],午餐:[["steamfish",1]],加餐:[["nuts",1]],晚餐:[["wawasoup",1],["corn",1]],夜宵:[["yogurt",1]]},
+   t:"晚餐：里脊切片用淀粉抓匀，娃娃菜煮软后下肉片，放盐和胡椒。"},
+  {d:"周四",m:{早餐:[["wonton",1],["egg",1]],午餐:[["lanzhou",1]],加餐:[["orange",1]],晚餐:[["beefmush",1],["sweetpotato",1]],夜宵:[["milk",1]]},
+   t:"晚餐：牛肉用生抽和淀粉腌 10 分钟，大火快炒，和菌菇一起出锅。"},
+  {d:"周五",m:{早餐:[["caibao",2],["teaegg",1],["doujiang",1]],午餐:[["bowl",1]],加餐:[["yogurt",1],["apple",1]],晚餐:[["fishsoup",1],["rice",1]]},
+   t:"晚餐：番茄炒出汁加水，下豆腐和鱼片煮熟即可。"},
+  {d:"周六",m:{早餐:[["jianbing",1],["doujiang",1]],午餐:[["luwei",1]],加餐:[["berries",1]],晚餐:[["airchicken",1],["potatoroast",1],["cucumber",1],["tomato",1]],夜宵:[["milk",1]]},
+   t:"晚餐：鸡腿用奥尔良粉腌，和土豆块一起 200℃ 炸 15–18 分钟。"},
+  {d:"周日",m:{早餐:[["corn",1],["teaegg",2],["yogurt",1]],午餐:[["beefnoodle",1]],加餐:[["banana",1]],晚餐:[["shrimpmush",1],["egg",1],["soba",1],["greens",1]],夜宵:[["milk",1]]},
+   t:"晚餐：荞麦面煮好，加青菜做成汤面。"},
+];
+
+/* ---------- 工具 ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const r0 = n => Math.round(n);
+const r1 = n => Math.round(n*10)/10;
+const pad = n => String(n).padStart(2,"0");
+const ymd = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parse = s => { const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d); };
+const addDays = (s, n) => { const d = parse(s); d.setDate(d.getDate()+n); return ymd(d); };
+const WD = ["周日","周一","周二","周三","周四","周五","周六"];
+const todayStr = () => ymd(new Date());
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const dayKey = s => "d-" + s;
+const guessMeal = () => { const h = new Date().getHours() + new Date().getMinutes()/60;
+  return h < 10.5 ? "早餐" : h < 14.5 ? "午餐" : h < 17.5 ? "加餐" : h < 21 ? "晚餐" : "夜宵"; };
+
+/* ---------- 存储：云端 db（每人私有）或本浏览器 ---------- */
+const LS_KEY = "kongzhi-diet:v1";
+let mode = "pending";        // pending | cloud | local
+let cache = {};              // key -> doc body
+let col = null;
+const chains = {};
+
+function lsLoad(){ try { return JSON.parse(localStorage.getItem(LS_KEY) || "{}") || {}; } catch { return {}; } }
+function lsSave(){ try { localStorage.setItem(LS_KEY, JSON.stringify(cache)); } catch {} }
+
+function saveDoc(key, body){
+  cache[key] = body;
+  renderAll();
+  if (mode === "cloud") {
+    chains[key] = (chains[key] || Promise.resolve())
+      .then(() => col.doc(key).set(body))
+      .catch(e => toast(e && e.code === "quota_exceeded" ? "存储已满，删除一些旧记录后再试" : "保存失败，请检查网络后重试"));
+  } else {
+    lsSave();
+  }
+}
+
+async function initStore(){
+  let db = null, id = null;
+  try {
+    db = await window.claude?.use?.("db");
+    const user = db ? await window.claude.use("user") : null;
+    id = user ? await user.id() : null;
+  } catch {}
+  if (db && id) {
+    mode = "cloud";
+    col = db.collection("data/users/" + id);
+    col.onSnapshot(snap => {
+      const next = {};
+      snap.docs.forEach(d => { next[d.id] = JSON.parse(JSON.stringify(d.data())); });
+      cache = next;
+      renderAll();
+    }, () => { toast("云端连接中断，刷新页面可恢复"); });
+  } else {
+    mode = "local";
+    cache = lsLoad();
+  }
+  renderAll();
+}
+
+/* ---------- 数据读取 ---------- */
+const settings = () => Object.assign({target:1900, protein:120}, cache.settings || {});
+const customFoods = () => (cache.foods && cache.foods.list) || [];
+const allFoods = () => FOODS.concat(customFoods().map(f => Object.assign({c:"mine"}, f)));
+const foodById = id => allFoods().find(f => f.id === id);
+const getDay = s => cache[dayKey(s)] || {date:s, items:[]};
+const dayTotals = s => getDay(s).items.reduce((a,it) => ({k:a.k + it.k*it.q, p:a.p + it.p*it.q}), {k:0,p:0});
+function levelOf(k, target){ return k <= target ? "ok" : k <= target + 150 ? "warn" : "bad"; }
+
+function addItems(dateStr, list){ // list: [{food, q, meal}]
+  const day = JSON.parse(JSON.stringify(getDay(dateStr)));
+  list.forEach(({food,q,meal}) => day.items.push({id:uid(), f:food.id, n:food.n, u:food.u, k:food.k, p:food.p, q, m:meal}));
+  day.date = dateStr;
+  saveDoc(dayKey(dateStr), day);
+}
+
+/* ---------- 状态 ---------- */
+const state = { tab:"today", date: todayStr(), cat:"all", q:"", presetMeal:null, sheet:null, lastDeleted:null };
+
+/* ---------- 渲染：今日 ---------- */
+function renderToday(){
+  const s = settings(), day = getDay(state.date), t = dayTotals(state.date);
+  const lvl = levelOf(t.k, s.target);
+  const remain = s.target - t.k;
+  const pct = Math.min(100, t.k / s.target * 100);
+  const ppct = Math.min(100, t.p / s.protein * 100);
+  const isToday = state.date === todayStr();
+  const d = parse(state.date);
+  const menuIdx = (d.getDay() + 6) % 7;
+  const status = lvl === "ok" ? `还能吃 ${r0(remain)} 千卡` : lvl === "warn" ? `超出 ${r0(-remain)} 千卡，问题不大` : `超出 ${r0(-remain)} 千卡`;
+
+  const meals = MEALS.map(m => {
+    const its = day.items.filter(it => it.m === m);
+    const mk = its.reduce((a,it) => a + it.k*it.q, 0);
+    return `<div class="meal">
+      <div class="meal-head"><h3>${m}</h3><span class="k">${its.length ? r0(mk) + " 千卡" : ""}</span></div>
+      ${its.length ? its.map(it => `<div class="item">
+          <div class="nm">${esc(it.n)}<small>${esc(it.u)} × ${it.q}</small></div>
+          <span class="k">${r0(it.k*it.q)}</span>
+          <button class="x" data-act="del" data-id="${esc(it.id)}" aria-label="删除 ${esc(it.n)}">×</button>
+        </div>`).join("") : `<div class="empty">还没记录</div>`}
+      <button class="link-btn add-meal" data-act="pick" data-meal="${m}">＋ 添加${m}</button>
+    </div>`;
+  }).join("");
+
+  $("#v-today").innerHTML = `
+    <div class="datebar">
+      <button class="icon-btn" data-act="day" data-n="-1" aria-label="前一天">‹</button>
+      <div class="d">${d.getMonth()+1}月${d.getDate()}日 · ${WD[d.getDay()]}${isToday ? "（今天）" : ""}</div>
+      <button class="icon-btn" data-act="day" data-n="1" aria-label="后一天">›</button>
+    </div>
+    ${isToday ? "" : `<button class="link-btn" data-act="gotoday" style="justify-self:center">回到今天</button>`}
+
+    <div class="summary">
+      <div class="row between">
+        <div class="big"><span class="n">${r0(t.k)}</span><span class="of">/ ${s.target} 千卡</span></div>
+        <span class="pill ${lvl}">${status}</span>
+      </div>
+      <div class="bar ${lvl === "ok" ? "" : lvl}"><i style="width:${pct}%"></i></div>
+      <div class="minirow">
+        <div class="mini"><div class="lbl">蛋白质</div><div class="v">${r0(t.p)} / ${s.protein} g</div>
+          <div class="bar" style="height:6px;margin-top:6px"><i style="width:${ppct}%"></i></div></div>
+        <div class="mini"><div class="lbl">已记录</div><div class="v">${day.items.length} 项</div></div>
+      </div>
+    </div>
+
+    <div class="row between">
+      <button class="btn ghost small" data-act="applyday" data-idx="${menuIdx}">按${MENU[menuIdx].d}菜单一键记录</button>
+      <button class="btn small" data-act="pick" data-meal="">＋ 记一笔</button>
+    </div>
+
+    ${meals}
+
+    <div class="card">
+      <h2>身体数据</h2>
+      <div class="body-metrics">
+        <div class="field"><label for="weight">体重（斤，早上空腹）</label>
+          <input id="weight" type="number" inputmode="decimal" step="0.1" placeholder="例如 150" value="${day.weight ?? ""}"></div>
+        <div class="field"><label for="waist">腰围（cm）</label>
+          <input id="waist" type="number" inputmode="decimal" step="0.5" placeholder="例如 88" value="${day.waist ?? ""}"></div>
+      </div>
+    </div>`;
+}
+
+/* ---------- 渲染：食物库 ---------- */
+function renderFoods(){
+  const q = state.q.trim();
+  const list = allFoods().filter(f => (state.cat === "all" || f.c === state.cat) && (!q || f.n.includes(q)));
+  const keepFocus = document.activeElement && document.activeElement.id === "food-q";
+  $("#v-foods").innerHTML = `
+    ${state.presetMeal ? `<div class="tip">选好食物后会记到 <b>${state.presetMeal}</b>（${parse(state.date).getMonth()+1}月${parse(state.date).getDate()}日）</div>` : ""}
+    <input id="food-q" class="search" type="search" placeholder="搜索食物，例如 鸡胸、土豆、麻辣烫" value="${esc(state.q)}">
+    <div class="chips">${CATS.map(([id,n]) => `<button class="chip" data-act="cat" data-cat="${id}" aria-pressed="${state.cat === id}">${n}</button>`).join("")}</div>
+    <div class="food-list">
+      ${list.length ? list.map(f => `<button class="food" data-act="food" data-id="${esc(f.id)}">
+          <span class="nm">${esc(f.n)}${f.w ? `<span class="tag-warn">少吃</span>` : ""}<small>${esc(f.u)}</small></span>
+          <span class="k">${f.k} 千卡<small>蛋白质 ${f.p}g</small></span>
+        </button>`).join("") : `<div class="empty" style="padding:14px">没找到“${esc(q)}”，可以在下面自己添加</div>`}
+    </div>
+    <div class="card">
+      <h2>添加自己的食物</h2>
+      <div class="custom-grid">
+        <div class="field"><label for="cf-n">名称</label><input id="cf-n" placeholder="例如 公司食堂套餐" value="${esc(q)}"></div>
+        <div class="field"><label for="cf-u">份量</label><input id="cf-u" placeholder="1份"></div>
+        <div class="field"><label for="cf-k">千卡</label><input id="cf-k" type="number" inputmode="numeric" placeholder="450"></div>
+        <div class="field"><label for="cf-p">蛋白质g</label><input id="cf-p" type="number" inputmode="decimal" placeholder="20"></div>
+      </div>
+      <div class="row between">
+        <span class="sub">不知道热量？可以看包装上的营养成分表，或参考相近的食物。</span>
+        <button class="btn small" data-act="addcustom">保存到“我的”</button>
+      </div>
+      ${customFoods().length ? `<div class="chips">${customFoods().map(f => `<span class="chip">${esc(f.n)} · ${f.k}千卡 <button class="x" style="width:22px;height:22px;font-size:14px" data-act="delcustom" data-id="${esc(f.id)}" aria-label="删除 ${esc(f.n)}">×</button></span>`).join("")}</div>` : ""}
+    </div>`;
+  if (keepFocus) { const el = $("#food-q"); el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+}
+
+/* ---------- 渲染：菜单 ---------- */
+function renderMenu(){
+  const ti = (new Date().getDay() + 6) % 7;
+  $("#v-menu").innerHTML = `
+    <div class="tip">每天约 1650–1750 千卡，剩下 150–250 千卡留给外卖和做菜时多出来的油和酱汁。点“记一下”会把这一餐记到 ${parse(state.date).getMonth()+1}月${parse(state.date).getDate()}日。</div>
+    ${MENU.map((day, i) => {
+      const tot = MEALS.reduce((a,m) => a + (day.m[m]||[]).reduce((b,[id,q]) => b + foodById(id).k*q, 0), 0);
+      const pro = MEALS.reduce((a,m) => a + (day.m[m]||[]).reduce((b,[id,q]) => b + foodById(id).p*q, 0), 0);
+      return `<div class="day-card ${i === ti ? "today" : ""}">
+        <div class="row between"><h3>${day.d}${i === ti ? " · 今天" : ""}</h3>
+          <span class="num sub">${r0(tot)} 千卡 · 蛋白质 ${r0(pro)}g</span></div>
+        ${MEALS.filter(m => day.m[m]).map(m => {
+          const its = day.m[m];
+          const k = its.reduce((b,[id,q]) => b + foodById(id).k*q, 0);
+          return `<div class="mrow"><span class="ml">${m}</span>
+            <div class="its">${its.map(([id,q]) => esc(foodById(id).n) + (q !== 1 ? ` ×${q}` : "")).join("、")} <span class="k">${r0(k)}千卡</span></div>
+            <button class="btn ghost small" data-act="applymeal" data-idx="${i}" data-meal="${m}">记一下</button></div>`;
+        }).join("")}
+        <div class="tip">${esc(day.t)}</div>
+      </div>`;
+    }).join("")}`;
+}
+
+/* ---------- 渲染：记录 ---------- */
+function renderHistory(){
+  const s = settings();
+  const end = todayStr();
+  const days = Array.from({length:14}, (_,i) => addDays(end, i-13));
+  const vals = days.map(d => ({d, t:dayTotals(d), has:getDay(d).items.length > 0, w:getDay(d).weight}));
+  const max = Math.max(s.target * 1.25, ...vals.map(v => v.t.k));
+  const logged = vals.filter(v => v.has);
+  const avg = logged.length ? logged.reduce((a,v) => a + v.t.k, 0) / logged.length : 0;
+  const allDays = Object.keys(cache).filter(k => k.startsWith("d-")).map(k => k.slice(2)).sort().reverse();
+  const weights = allDays.filter(d => getDay(d).weight).map(d => ({d, w:+getDay(d).weight}));
+  const wNow = weights[0], wFirst = weights[weights.length-1];
+
+  $("#v-history").innerHTML = `
+    <div class="summary">
+      <div class="row between"><h2>最近 14 天热量</h2><span class="sub">点柱子查看那一天</span></div>
+      <div class="chart">
+        <div class="plot">
+          <div class="target-line" style="bottom:${s.target/max*100}%"><span>目标 ${s.target}</span></div>
+          ${vals.map(v => {
+            const h = v.has ? Math.max(2, v.t.k / max * 100) : 2;
+            const cls = v.has ? levelOf(v.t.k, s.target) : "none";
+            return `<button class="col ${v.d === state.date ? "sel" : ""}" data-act="gotodate" data-d="${v.d}" aria-label="${v.d} ${r0(v.t.k)} 千卡">
+              <span class="b ${cls === "ok" ? "" : cls}" style="height:${h}%"></span></button>`;
+          }).join("")}
+        </div>
+        <div class="labels">${vals.map(v => `<span class="${v.d === state.date ? "sel" : ""}">${parse(v.d).getDate()}</span>`).join("")}</div>
+      </div>
+      <div class="minirow">
+        <div class="mini"><div class="lbl">记录天数</div><div class="v">${logged.length} / 14</div></div>
+        <div class="mini"><div class="lbl">日均热量</div><div class="v">${logged.length ? r0(avg) : "—"}</div></div>
+        <div class="mini"><div class="lbl">最新体重</div><div class="v">${wNow ? wNow.w + " 斤" : "—"}</div></div>
+        <div class="mini"><div class="lbl">体重变化</div><div class="v">${wNow && wFirst && wNow !== wFirst ? (wNow.w - wFirst.w > 0 ? "+" : "") + r1(wNow.w - wFirst.w) + " 斤" : "—"}</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>每日明细</h2>
+      ${allDays.length ? `<div class="tbl"><table>
+        <thead><tr><th>日期</th><th>热量</th><th>蛋白质</th><th>体重</th><th>腰围</th></tr></thead>
+        <tbody>${allDays.slice(0,60).map(d => { const t = dayTotals(d), g = getDay(d);
+          return `<tr><td><button class="link-btn" data-act="gotodate" data-d="${d}">${parse(d).getMonth()+1}/${parse(d).getDate()} ${WD[parse(d).getDay()]}</button></td>
+          <td>${r0(t.k)}</td><td>${r0(t.p)}g</td><td>${g.weight ?? "—"}</td><td>${g.waist ?? "—"}</td></tr>`; }).join("")}</tbody>
+      </table></div>` : `<div class="empty">还没有记录。去“今日”记下第一餐，这里会显示每天的热量和体重。</div>`}
+    </div>
+
+    <div class="card">
+      <h2>每日目标</h2>
+      <div class="body-metrics">
+        <div class="field"><label for="set-k">热量目标（千卡）</label><input id="set-k" type="number" inputmode="numeric" value="${s.target}"></div>
+        <div class="field"><label for="set-p">蛋白质目标（g）</label><input id="set-p" type="number" inputmode="numeric" value="${s.protein}"></div>
+      </div>
+      <span class="sub">按 175cm、75kg、男性、久坐少动估算：每天约 1900 千卡、蛋白质 120g。体重连续 2 周不降，可以把热量目标调低 100–150。</span>
+    </div>`;
+}
+
+/* ---------- 加食物的底部面板 ---------- */
+function openSheet(food, meal){
+  state.sheet = {food, q:1, meal: meal || state.presetMeal || guessMeal()};
+  renderSheet();
+}
+function renderSheet(){
+  const root = $("#sheet-root");
+  if (!state.sheet) { root.innerHTML = ""; return; }
+  const {food,q,meal} = state.sheet;
+  root.innerHTML = `<div class="scrim" data-act="close"></div>
+    <div class="sheet" role="dialog" aria-modal="true" aria-label="添加 ${esc(food.n)}">
+      <div class="sheet-in">
+        <div class="row between"><div><h2>${esc(food.n)}</h2><div class="sub">${esc(food.u)} · ${food.k} 千卡 · 蛋白质 ${food.p}g</div></div>
+          <button class="x" data-act="close" aria-label="关闭">×</button></div>
+        ${food.w ? `<div class="tip" style="color:var(--bad);background:var(--bad-soft)">这个油多或糖多，对内脏脂肪不友好，一周最多一次。</div>` : ""}
+        <div class="row between">
+          <div class="stepper">
+            <button data-act="q" data-n="-0.5" aria-label="减少半份">−</button>
+            <span class="q">${q}</span>
+            <button data-act="q" data-n="0.5" aria-label="增加半份">＋</button>
+            <span class="sub">份</span>
+          </div>
+          <div class="big"><span class="n" style="font-size:28px">${r0(food.k*q)}</span><span class="of">千卡</span></div>
+        </div>
+        <div class="seg">${MEALS.map(m => `<button data-act="meal" data-meal="${m}" aria-pressed="${m === meal}">${m}</button>`).join("")}</div>
+        <button class="btn" data-act="confirm">记到${meal}</button>
+      </div>
+    </div>`;
+}
+function closeSheet(){ state.sheet = null; renderSheet(); }
+
+/* ---------- 提示 ---------- */
+let toastTimer;
+function toast(msg, undo){
+  const root = $("#toast-root");
+  root.innerHTML = `<div class="toast" role="status"><span>${esc(msg)}</span>${undo ? `<button data-act="undo">撤销</button>` : ""}</div>`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { root.innerHTML = ""; state.lastDeleted = null; }, 4000);
+}
+
+/* ---------- 总渲染 ---------- */
+function renderAll(){
+  const m = $("#mode");
+  m.className = "mode" + (mode === "local" ? " local" : "");
+  m.textContent = mode === "cloud" ? "已云端保存" : mode === "local" ? "只存在本浏览器" : "正在连接…";
+  m.title = mode === "local" ? "当前无法连接云端，记录只保存在这台设备的浏览器里，清除浏览器数据会丢失" : "";
+  document.querySelectorAll("nav.tabs a").forEach(a => a.setAttribute("aria-current", a.dataset.tab === state.tab ? "page" : "false"));
+  ["today","foods","menu","history"].forEach(t => { $("#v-" + t).hidden = t !== state.tab; });
+  if (state.tab === "today") renderToday();
+  if (state.tab === "foods") renderFoods();
+  if (state.tab === "menu") renderMenu();
+  if (state.tab === "history") renderHistory();
+}
+
+function setTab(t){
+  state.tab = ["today","foods","menu","history"].includes(t) ? t : "today";
+  if (state.tab !== "foods") state.presetMeal = null;
+  renderAll();
+  window.scrollTo(0,0);
+}
+function go(t){ if (location.hash === "#" + t) setTab(t); else location.hash = t; }
+
+/* ---------- 事件 ---------- */
+document.addEventListener("click", e => {
+  const el = e.target.closest("[data-act]");
+  if (!el) return;
+  const a = el.dataset.act;
+  if (a === "day") { state.date = addDays(state.date, +el.dataset.n); renderAll(); }
+  else if (a === "gotoday") { state.date = todayStr(); renderAll(); }
+  else if (a === "gotodate") { state.date = el.dataset.d; go("today"); }
+  else if (a === "pick") { state.presetMeal = el.dataset.meal || null; go("foods"); }
+  else if (a === "cat") { state.cat = el.dataset.cat; renderFoods(); }
+  else if (a === "food") { openSheet(foodById(el.dataset.id)); }
+  else if (a === "close") closeSheet();
+  else if (a === "q") { state.sheet.q = Math.max(0.5, Math.min(10, state.sheet.q + +el.dataset.n)); renderSheet(); }
+  else if (a === "meal") { state.sheet.meal = el.dataset.meal; renderSheet(); }
+  else if (a === "confirm") {
+    const {food,q,meal} = state.sheet;
+    addItems(state.date, [{food,q,meal}]);
+    closeSheet();
+    toast(`已记录：${food.n} ${r0(food.k*q)} 千卡`);
+    if (state.presetMeal) { state.presetMeal = null; go("today"); }
+  }
+  else if (a === "del") {
+    const day = JSON.parse(JSON.stringify(getDay(state.date)));
+    const i = day.items.findIndex(it => it.id === el.dataset.id);
+    if (i < 0) return;
+    const [it] = day.items.splice(i, 1);
+    state.lastDeleted = {date:state.date, it, i};
+    saveDoc(dayKey(state.date), day);
+    toast(`已删除：${it.n}`, true);
+  }
+  else if (a === "undo" && state.lastDeleted) {
+    const {date,it,i} = state.lastDeleted;
+    const day = JSON.parse(JSON.stringify(getDay(date)));
+    day.items.splice(Math.min(i, day.items.length), 0, it);
+    state.lastDeleted = null;
+    saveDoc(dayKey(date), day);
+    $("#toast-root").innerHTML = "";
+  }
+  else if (a === "applyday" || a === "applymeal") {
+    const day = MENU[+el.dataset.idx];
+    const meals = a === "applyday" ? MEALS.filter(m => day.m[m]) : [el.dataset.meal];
+    const list = [];
+    meals.forEach(m => day.m[m].forEach(([id,q]) => list.push({food:foodById(id), q, meal:m})));
+    addItems(state.date, list);
+    toast(`已按${day.d}菜单记录${a === "applyday" ? "全天" : el.dataset.meal}，吃得不一样可以删掉再改`);
+  }
+  else if (a === "addcustom") {
+    const n = $("#cf-n").value.trim(), u = $("#cf-u").value.trim() || "1份";
+    const k = parseFloat($("#cf-k").value), p = parseFloat($("#cf-p").value) || 0;
+    if (!n || !(k >= 0)) { toast("请填写名称和热量"); return; }
+    const list = customFoods().concat([{id:"c" + uid(), n, u, k:r0(k), p:r1(p)}]);
+    state.q = ""; state.cat = "mine";
+    saveDoc("foods", {list});
+    toast(`已保存：${n}，点它就能记录`);
+  }
+  else if (a === "delcustom") {
+    saveDoc("foods", {list: customFoods().filter(f => f.id !== el.dataset.id)});
+  }
+});
+
+document.addEventListener("input", e => {
+  if (e.target.id === "food-q") { state.q = e.target.value; renderFoods(); }
+});
+document.addEventListener("change", e => {
+  const id = e.target.id;
+  if (id === "weight" || id === "waist") {
+    const v = e.target.value === "" ? null : r1(parseFloat(e.target.value));
+    const day = JSON.parse(JSON.stringify(getDay(state.date)));
+    if ((day[id] ?? null) === v) return;
+    day[id] = v; day.date = state.date;
+    saveDoc(dayKey(state.date), day);
+    toast(id === "weight" ? "体重已保存" : "腰围已保存");
+  }
+  if (id === "set-k" || id === "set-p") {
+    const s = settings();
+    const v = parseInt(e.target.value, 10);
+    if (!(v > 0)) return;
+    saveDoc("settings", Object.assign({}, s, id === "set-k" ? {target:v} : {protein:v}));
+    toast("目标已更新");
+  }
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape" && state.sheet) closeSheet(); });
+window.addEventListener("hashchange", () => setTab(location.hash.slice(1)));
+
+state.tab = ["today","foods","menu","history"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "today";
+renderAll();
+initStore();
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+
+</body>
+</html>
